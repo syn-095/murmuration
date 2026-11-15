@@ -100,7 +100,8 @@ function onPacket(e) {
   }
   specPackets.push({ s: e.tStart, pkt: e.pkt, label: `#${e.pkt.id} · ${ROLE_NAME[e.pkt.role]} · ${SONGS[e.pkt.song].name}` });   // my own song shows up too
   if (specPackets.length > 20) specPackets.shift();
-  if (k === 'self') return;
+  if (k === 'self') { if (performance.now() - lastOtherAt > 20000) drawScore(e.pkt, true); return; }   // alone: show my own song
+  lastOtherAt = performance.now();
   rx.set(e.pkt.id, { at: performance.now(), kind: k });
   const a = engine.agent, size = a.groupSize(engine.ctx.currentTime);
   if (k === 'snap' || size > lastSize) flash(`LOCKED · band of ${size} · ${SONGS[a.song].name}`);
@@ -241,13 +242,15 @@ function fieldOf(k) { // data symbol k carries word bits 25-2k, 24-2k (payload b
   const b = 25 - 2 * k;
   return b >= 23 ? 'id' : b >= 21 ? 'role' : b >= 18 ? 'song' : b >= 16 ? 'gen' : b >= 8 ? 'mask' : 'crc';
 }
-function drawScore(pkt) {
+let lastOtherAt = -1e9;
+function drawScore(pkt, mine = false) {
   const heard = []; for (let i = 0; i < 8; i++) if (pkt.mask & (1 << i)) heard.push('#' + i);
-  drawScoreRaw(packPayload(pkt), `<span style="color:${FIELD_COL.id}">#${pkt.id}</span> sang: "I play <span style="color:${FIELD_COL.role}">${ROLE_NAME[pkt.role]}</span>, ` +
+  drawScoreRaw(packPayload(pkt), `<span style="color:${FIELD_COL.id}">${mine ? `I (#${pkt.id})` : '#' + pkt.id}</span> sang: "I play <span style="color:${FIELD_COL.role}">${ROLE_NAME[pkt.role]}</span>, ` +
     `in <span style="color:${FIELD_COL.song}">${SONGS[pkt.song].name}</span> (v${pkt.gen}), ` +
     `<span style="color:${FIELD_COL.mask}">${heard.length ? 'I hear ' + heard.join(' ') : 'I hear nobody yet'}</span>"`, pkt);
 }
 function drawScoreRaw(raw, html, pkt = null) {
+  $('rosetta').style.display = '';
   const cv = $('score'), g = cv.getContext('2d'), dpr = Math.min(2, devicePixelRatio || 1);
   const W = cv.clientWidth, H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const tones = packetTones(raw), n = tones.length, lw = 26, cw = (W - lw) / n;
