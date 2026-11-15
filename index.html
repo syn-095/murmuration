@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080f">
+<title>Murmuration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#07080f; --ink:#eef0fa; --muted:#8a90ad; --line:#20243a; --accent:#9aa8ff; --warn:#ffb347; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:"Space Grotesk",system-ui,sans-serif; overflow:hidden; -webkit-user-select:none; user-select:none; }
+  canvas#c { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .top { position:fixed; top:max(14px,env(safe-area-inset-top)); left:16px; right:16px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; pointer-events:none; }
+  #genreBtn { pointer-events:auto; margin-top:8px; font-size:12.5px; padding:7px 12px; border-radius:999px; background:#151829cc; }
+  .brand { font-weight:700; letter-spacing:.22em; font-size:13px; color:var(--muted); }
+  .status { font:500 12px "JetBrains Mono",monospace; color:var(--muted); text-align:right; line-height:1.6; }
+  .status b { color:var(--ink); font-weight:600; }
+  .bottom { position:fixed; left:16px; right:16px; bottom:max(58px,calc(env(safe-area-inset-bottom) + 42px)); display:flex; flex-direction:column; gap:10px; }
+  #log { font:400 12.5px "JetBrains Mono",monospace; color:var(--muted); min-height:5.2em; display:flex; flex-direction:column-reverse; gap:2px; pointer-events:none; }
+  #log div:first-child { color:var(--ink); }
+  #rosetta { background:#0e1120cc; border:1px solid var(--line); border-radius:12px; padding:8px 10px; }
+  #score { width:100%; height:48px; display:block; }
+  #spec { position:fixed; top:104px; left:16px; right:16px; height:clamp(120px,24vh,230px); background:#0b0d1acc; border:1px solid var(--line); border-radius:12px; overflow:hidden; display:none; }
+  #spec.show { display:block; }
+  #specCv { width:100%; height:100%; display:block; }
+  .specLbl { position:absolute; right:10px; bottom:6px; font:11px "JetBrains Mono",monospace; color:var(--muted); pointer-events:none; }
+  #specBtn { white-space:nowrap; }
+  #sayBtn { white-space:nowrap; }
+  @media (max-width:560px) { #specBtn, #sayBtn { font-size:12.5px; padding:13px 8px; } #deaf { font-size:13px; padding:13px 8px; } }
+  #say { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:#07080fcc; padding:16px; z-index:5; }
+  #say.show { display:flex; }
+  .sayCard { background:#11142a; border:1px solid var(--line); border-radius:16px; padding:18px; width:min(420px,100%); display:flex; flex-direction:column; gap:10px; }
+  .sayT { font-weight:700; font-size:18px; } .sayS { color:var(--muted); font-size:13px; line-height:1.4; }
+  .sayRow { display:flex; gap:8px; } #sayIn { flex:1; min-width:0; font:700 22px "JetBrains Mono",monospace; text-transform:uppercase; letter-spacing:.2em; background:#07080f; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  #sayGo { background:var(--accent); color:#0a0c1c; border:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; } .chips button { padding:8px 12px; font-size:15px; }
+  .link { background:none; border:0; color:var(--muted); font-size:13px; align-self:center; }
+  #flash { position:fixed; left:0; right:0; top:42%; text-align:center; font:700 clamp(26px,7vw,54px) "Space Grotesk"; letter-spacing:.08em; pointer-events:none; opacity:0; transition:opacity .6s; text-shadow:0 0 30px rgba(0,0,0,.8); }
+  #flash.on { opacity:1; transition:opacity .1s; }
+  #resume { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:#07080fcc; font:600 20px "Space Grotesk"; }
+  @media (max-height:760px) { #log { min-height:3.6em; font-size:11.5px; } #log div:nth-child(n+4) { display:none; } #trans { font-size:11.5px; } }
+  #trans { font:500 12.5px "JetBrains Mono",monospace; color:var(--ink); margin-top:4px; }
+  .row { display:flex; gap:8px; }
+  button { font:600 15px "Space Grotesk",sans-serif; color:var(--ink); background:#151829; border:1px solid var(--line); border-radius:12px; padding:13px 16px; cursor:pointer; }
+  button:active { transform:scale(.98); }
+  #deaf { flex:1; }
+  #deaf.on { background:var(--warn); color:#1a1000; border-color:var(--warn); }
+  #dbgBtn { width:52px; padding:13px 0; }
+  #dbg { position:fixed; top:64px; left:16px; right:16px; max-width:420px; margin-left:auto; background:#0e1120ee; border:1px solid var(--line); border-radius:12px; padding:12px; font:12px "JetBrains Mono",monospace; color:var(--muted); display:none; }
+  #dbg.show { display:block; }
+  #bars { display:flex; gap:4px; align-items:flex-end; height:70px; margin:8px 0; }
+  #bars div { flex:1; background:var(--accent); border-radius:3px 3px 0 0; min-height:2px; }
+  #start { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; text-align:center; background:radial-gradient(ellipse at 50% 40%, #171b3a 0%, var(--bg) 70%); }
+  #start h1 { font-size:clamp(34px,9vw,64px); letter-spacing:.12em; margin:0; font-weight:700; }
+  #start p { max-width:30em; color:var(--muted); margin:0; line-height:1.5; }
+  #start button { font-size:18px; padding:16px 34px; background:var(--accent); color:#0a0c1c; border:0; border-radius:999px; }
+  #start small { color:var(--muted); font-size:12px; }
+  #err { color:var(--warn); max-width:30em; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="top">
+  <div><div class="brand">MURMURATION</div><button id="genreBtn" title="change the band's genre">genre</button></div>
+  <div class="status" id="status"></div>
+</div>
+<div id="spec"><canvas id="specCv"></canvas><div class="specLbl">what the microphone hears: the 8 bell notes over time · boxes = decoded songs</div></div>
+<div id="dbg">
+  <div>bell tones (dB over noise floor)</div>
+  <div id="bars"></div>
+  <div id="dbgText"></div>
+</div>
+<div class="bottom">
+  <div id="rosetta"><canvas id="score"></canvas><div id="trans">no songs heard yet</div></div>
+  <div id="log"></div>
+  <div class="row">
+    <button id="deaf">Knock me out</button>
+    <button id="sayBtn" title="sing a 3-character message to the swarm">Sing a message</button>
+    <button id="specBtn" title="show the language">Show the language</button>
+    <button id="dbgBtn" title="debug">⋯</button>
+  </div>
+</div>
+<div id="say" role="dialog" aria-label="Sing a message">
+  <div class="sayCard">
+    <div class="sayT">Sing a message to the swarm</div>
+    <div class="sayS">Up to 3 characters. It rides in your next song and every device that hears it sings it on.</div>
+    <div class="sayRow"><input id="sayIn" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="HI!"><button id="sayGo">Sing it</button></div>
+    <div class="chips"><button>HI!</button><button>♥</button><button>SOS</button><button>★♪★</button><button>YO</button><button>&lt;3</button></div>
+    <button id="sayX" class="link">cancel</button>
+  </div>
+</div>
+<div id="flash"></div>
+<div id="resume">tap to resume the music</div>
+<div id="start">
+  <h1>MURMURATION</h1>
+  <p>Every phone here is a musician. They don't share a network or a server: they listen to each other's bell songs and find the same beat, the same key and their own parts. Like starlings, or fireflies.</p>
+  <button id="go">Join the swarm</button>
+  <small>Volume up · keep this tab open · allow the microphone</small>
+  <div id="err"></div>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

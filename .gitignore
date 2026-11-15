@@ -1,0 +1,7 @@
+.netlify/
+.claude/
+node_modules/
+specs.txt
+Screenshot *.png
+*.tmp.mjs
+dbg_*.mjs

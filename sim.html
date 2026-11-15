@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Murmuration: Virtual Room</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#07080f; --panel:#0f1222; --ink:#eef0fa; --muted:#8a90ad; --line:#22263d; --accent:#9aa8ff; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:"Space Grotesk",system-ui,sans-serif; }
+  .app { display:grid; grid-template-columns:minmax(0,1fr) 340px; height:100%; gap:12px; padding:12px 16px; }
+  .room { position:relative; background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; min-height:300px; }
+  .room canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .side { display:flex; flex-direction:column; gap:10px; min-height:0; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  h1 { font-size:18px; letter-spacing:.18em; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; line-height:1.45; }
+  .btns { display:flex; flex-wrap:wrap; gap:6px; }
+  button { font:600 13px "Space Grotesk"; color:var(--ink); background:#181c33; border:1px solid var(--line); border-radius:9px; padding:8px 11px; cursor:pointer; }
+  button.on { background:var(--accent); color:#0a0c1c; }
+  label { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+  input[type=range] { flex:1; }
+  .stat { font:500 12px "JetBrains Mono",monospace; color:var(--muted); line-height:1.7; }
+  .stat b { color:var(--ink); }
+  #log { font:400 11.5px "JetBrains Mono",monospace; color:var(--muted); overflow:auto; flex:1; min-height:80px; }
+  #log div { padding:1px 0; }
+  #chart { width:100%; height:110px; display:block; }
+  .hint { position:absolute; left:14px; bottom:10px; font-size:12px; color:var(--muted); pointer-events:none; }
+  @media (max-width:860px) { .app { grid-template-columns:1fr; height:auto; } .room { height:60vh; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="room"><canvas id="room"></canvas><div class="hint">drag musicians around · double-click one to knock it out (and again to bring it back) · the wall blocks sound</div></div>
+  <div class="side">
+    <div class="card">
+      <h1>VIRTUAL ROOM</h1>
+      <div class="sub">The same agent code as the phones, in a simulated room: each musician has its own clock and 20–270 ms of audio latency. Sound travels at 343 m/s, packets collide and get lost.</div>
+    </div>
+    <div class="card btns">
+      <button id="add">+ musician</button>
+      <button id="add4">+4</button>
+      <button id="wall">wall</button>
+      <button id="scatter">scramble clocks</button>
+      <button id="reset">reset</button>
+      <button id="speed">speed ×4</button>
+    </div>
+    <div class="card">
+      <label>packet loss <input id="loss" type="range" min="0" max="0.8" step="0.05" value="0.3"><span id="lossv">30%</span></label>
+    </div>
+    <div class="card">
+      <div class="stat" id="stat"></div>
+      <canvas id="chart"></canvas>
+    </div>
+    <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0"><div class="sub" style="margin-bottom:6px">decision log</div><div id="log"></div></div>
+  </div>
+</div>
+<script type="module">
+import { World } from './js/sim.js';
+import { C, SONGS } from './js/agent.js';
+
+const ROLE_COL = ['#ff7a59', '#ffd166', '#7bdff2', '#b388ff'];
+const ROLE_NAME = ['bass', 'melody', 'pads', 'drums'];
+const SONG_HUE = [222, 262, 32, 330, 140, 190, 285, 8];
+const M = 70;   // px per metre
+const $ = id => document.getElementById(id);
+let world, speed = 1, history = [];
+
+function log(i, m) {
+  const d = document.createElement('div');
+  d.innerHTML = `<span style="color:${ROLE_COL[world.nodes[i]?.agent.role ?? 0]}">${String(world.t.toFixed(0)).padStart(4)}s n${i}</span> ${m.replace(/</g, '&lt;')}`;
+  $('log').prepend(d); while ($('log').children.length > 80) $('log').lastChild.remove();
+}
+function reset() {
+  world = new World({ seed: Math.floor(Math.random() * 1e6), loss: +$('loss').value, onLog: log });
+  history = []; $('log').innerHTML = '';
+  for (let i = 0; i < 3; i++) addNode();
+}
+function addNode() {
+  const cv = $('room');
+  world.addNode({ x: (0.15 + Math.random() * 0.7) * cv.clientWidth / M, y: (0.2 + Math.random() * 0.6) * cv.clientHeight / M });
+}
+$('add').onclick = addNode;
+$('add4').onclick = () => { for (let i = 0; i < 4; i++) addNode(); };
+$('reset').onclick = reset;
+$('wall').onclick = () => { world.wall = world.wall == null ? $('room').clientWidth / M / 2 : null; $('wall').classList.toggle('on', world.wall != null); };
+$('scatter').onclick = () => { for (const n of world.nodes) n.agent.T0 += Math.random() * C.CYCLE; const d = document.createElement('div'); d.textContent = '— someone scrambled every clock —'; $('log').prepend(d); };
+$('speed').onclick = () => { speed = speed === 1 ? 4 : 1; $('speed').classList.toggle('on', speed > 1); };
+$('loss').oninput = () => { world.loss = +$('loss').value; $('lossv').textContent = Math.round(world.loss * 100) + '%'; };
+
+// dragging
+let drag = null;
+const cv = $('room'), g = cv.getContext('2d');
+const pick = e => { const r = cv.getBoundingClientRect(); const x = (e.clientX - r.left) / M, y = (e.clientY - r.top) / M; return world.nodes.find(n => Math.hypot(n.x - x, n.y - y) < 0.45); };
+cv.onpointerdown = e => { drag = pick(e); if (drag) cv.setPointerCapture(e.pointerId); };
+cv.onpointermove = e => { if (!drag) return; const r = cv.getBoundingClientRect(); drag.x = (e.clientX - r.left) / M; drag.y = (e.clientY - r.top) / M; };
+cv.onpointerup = () => drag = null;
+cv.ondblclick = e => {
+  const n = pick(e); if (!n) return;
+  n.deaf = !n.deaf; const a = n.agent; a.deaf = n.deaf;
+  if (n.deaf) { a.T0 += C.CYCLE * (0.2 + 0.5 * Math.random()); a.song = Math.floor(Math.random() * 8); for (const p of a.peers.values()) p.inPhaseAt = null; }
+  else n.quietUntil = world.t + C.CYCLE + 1;
+  log(n.idx, n.deaf ? 'knocked out: deaf, lost my place' : 'ears back: listening quietly for the band…');
+};
+
+let lastT = performance.now();
+function frame(ts) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (ts - lastT) / 1000); lastT = ts;
+  world.step(dt * speed);
+  if (!history.length || world.t - history[history.length - 1].t > 0.5) {
+    history.push({ t: world.t, s: world.spread() }); if (history.length > 240) history.shift();
+  }
+  draw();
+}
+function draw() {
+  const dpr = Math.min(2, devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  // grid
+  g.strokeStyle = 'rgba(255,255,255,0.04)'; g.lineWidth = 1;
+  for (let x = 0; x < W; x += M) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for (let y = 0; y < H; y += M) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  if (world.wall != null) { g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(world.wall * M - 4, 0, 8, H); }
+  const t = world.t;
+  // sound waves from transmitting nodes
+  for (const p of world.inflight.concat(world.recent || [])) {
+    const age = t - p.emit; if (age < 0 || age > 1.6) continue;
+    const n = world.nodes[p.from];
+    for (let k = 0; k < 3; k++) {
+      const r = ((age * 2.2 + k / 3) % 1) * world.range * M * 0.5;
+      g.beginPath(); g.arc(n.x * M, n.y * M, r, 0, 7);
+      g.strokeStyle = `hsla(${SONG_HUE[n.agent.song]},80%,70%,${0.35 * (1 - r / (world.range * M * 0.5))})`; g.lineWidth = 2; g.stroke();
+    }
+  }
+  // decoded packets: lines
+  for (const e of world.events) {
+    if (e.type !== 'rx' || t - e.t > 0.8) continue;
+    const a = world.nodes[e.from], b = world.nodes[e.to], f = 1 - (t - e.t) / 0.8;
+    g.beginPath(); g.moveTo(a.x * M, a.y * M); g.lineTo(b.x * M, b.y * M);
+    g.strokeStyle = e.kind === 'snap' ? `rgba(255,180,71,${f})` : `rgba(255,255,255,${0.35 * f})`; g.lineWidth = e.kind === 'snap' ? 3 : 1.5; g.stroke();
+  }
+  // nodes
+  for (const n of world.nodes) {
+    const a = n.agent, local = t + n.offset;
+    const beats = n.beats.filter(b => b.g <= t); const last = beats[beats.length - 1];
+    const since = last ? t - last.g : 9;
+    const pulse = Math.exp(-since * 6) * (last && last.beat === 0 ? 1 : 0.5);
+    const x = n.x * M, y = n.y * M, r = 20 + pulse * 9;
+    const hue = SONG_HUE[a.song];
+    g.beginPath(); g.arc(x, y, r + 10, 0, 7); g.fillStyle = `hsla(${hue},80%,60%,${0.12 + pulse * 0.3})`; g.fill();
+    g.beginPath(); g.arc(x, y, r, 0, 7);
+    g.fillStyle = n.deaf ? '#ffb347' : `hsl(${hue},70%,${40 + pulse * 30}%)`; g.fill();
+    g.lineWidth = 4; g.strokeStyle = ROLE_COL[a.role]; g.stroke();
+    // beat-in-cycle hand
+    if (last) {
+      const pos = (last.bar * 4 + last.beat + Math.min(1, since / C.BEAT)) / 32, ang = -Math.PI / 2 + pos * 2 * Math.PI;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(ang) * (r - 3), y + Math.sin(ang) * (r - 3)); g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 2; g.stroke();
+    }
+    g.fillStyle = '#fff'; g.font = '600 11px Space Grotesk'; g.textAlign = 'center';
+    g.fillText(`${a.id >= 0 ? '#' + a.id : '…'} ${ROLE_NAME[a.role]}`, x, y + r + 16);
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '10px JetBrains Mono';
+    g.fillText(n.deaf ? 'deaf' : a.mode === 'listening' ? 'listening' : `${Math.round((n.O + n.I) * 1000)}ms lat`, x, y + r + 29);
+  }
+  // stats
+  const sp = world.spread(), songs = world.nodes.map(n => n.agent.song);
+  const counts = {}; songs.forEach(s => counts[s] = (counts[s] || 0) + 1);
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  $('stat').innerHTML = `musicians <b>${world.nodes.length}</b> · time <b>${t.toFixed(0)} s</b><br>beat spread <b>${sp < 1000 ? sp.toFixed(0) + ' ms' : (sp / 1000).toFixed(1) + ' s'}</b> ${sp < 20 ? '· <b style="color:#7be495">locked</b>' : ''}<br>key <b>${top ? SONGS[top[0]].name : '-'}</b> (${top ? top[1] : 0}/${world.nodes.length} agree)`;
+  // chart: spread over time, log scale
+  const ch = $('chart'), cg = ch.getContext('2d'), cw = ch.clientWidth, chh = ch.clientHeight;
+  if (ch.width !== cw * dpr) { ch.width = cw * dpr; ch.height = chh * dpr; }
+  cg.setTransform(dpr, 0, 0, dpr, 0, 0); cg.clearRect(0, 0, cw, chh);
+  const yOf = v => chh - 4 - (Math.log10(Math.max(1, v)) / Math.log10(10000)) * (chh - 8);
+  cg.strokeStyle = 'rgba(123,228,149,0.5)'; cg.setLineDash([3, 3]); cg.beginPath(); cg.moveTo(0, yOf(20)); cg.lineTo(cw, yOf(20)); cg.stroke(); cg.setLineDash([]);
+  cg.fillStyle = 'rgba(255,255,255,0.4)'; cg.font = '10px JetBrains Mono'; cg.fillText('20 ms', 4, yOf(20) - 3); cg.fillText('10 s', 4, 12);
+  cg.beginPath(); history.forEach((h, i) => { const x = i / 239 * cw; i ? cg.lineTo(x, yOf(h.s)) : cg.moveTo(x, yOf(h.s)); });
+  cg.strokeStyle = '#9aa8ff'; cg.lineWidth = 2; cg.stroke();
+}
+reset();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

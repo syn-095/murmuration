@@ -1,0 +1,2 @@
+{ "name": "murmuration", "private": true, "type": "module",
+  "scripts": { "test": "node tests/modem.test.js && node tests/agent.test.js" } }
