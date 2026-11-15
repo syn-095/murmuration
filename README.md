@@ -1,6 +1,6 @@
 # Murmuration
 
-**A band of phones with no network, no server and no conductor. They talk to each other only by singing.**
+**A band of phones that talk only through sound. Every chime is data: with no server or conductor they find a shared beat, key and parts by ear, and heal when one drops out.**
 
 Open the page on a few phones and laptops. Each device becomes a musician that chooses its own part, listens to the others through its microphone, and gradually finds the same beat, the same key and a part nobody else is playing. Every chime you hear is a **data packet**: the notes *are* the bits. Press **Knock me out** on one phone: it goes deaf, loses its place and drifts out of time and key. Let it hear again and it finds the band by ear and locks back in. You can *hear* the network heal.
 

@@ -1,8 +1,14 @@
-# Murmuration: Devpost submission and demo script
+# Murmuration: Devpost submission and pitch notes
 
-**Tagline:** A band of phones with no network. They agree by singing.
+**Project name:** Murmuration
 
-**Try it:** https://murmuration-swarm-4yqs.netlify.app (2+ devices, volume up) · **Virtual room:** https://murmuration-swarm-4yqs.netlify.app/sim.html · **Code:** https://github.com/syn-095/murmuration
+**Elevator pitch (171/200 characters):**
+> A band of phones that talk only through sound. Every chime is data: with no server or conductor they find a shared beat, key and parts by ear, and heal when one drops out.
+
+**Links:**
+- Try it: https://murmuration-swarm-4yqs.netlify.app (2+ devices, volume up, tap *Join the swarm*)
+- Virtual room: https://murmuration-swarm-4yqs.netlify.app/sim.html
+- Code: https://github.com/syn-095/murmuration
 
 **Gallery:** `screenshots/2-language.png` (thumbnail), `1-band.png`, `3-virtual-room.png`, `4-split-by-wall.png`
 
@@ -10,83 +16,107 @@
 
 ---
 
-## Elevator pitch
-Murmuration turns any phones and laptops into a band whose only connection is sound. Every chime you hear is a data packet in an invented 8-note language. With no server and no conductor, each device independently finds the shared beat, the key and a part nobody else is playing, and cancels its own unknown audio latency by listening to itself. Knock one out and it drifts off alone. Let it hear again and it finds the band by ear: you can *hear* a distributed system heal.
-
 ## Inspiration
-Starlings in a murmuration and fireflies flashing in sync have no leader. Each one reacts only to its neighbours, and order emerges anyway. We wanted that, but audible: a distributed system you can listen to. The constraint we chose was the hard one: no network at all. If the devices can only talk through the air, then the music has to *be* the protocol.
+Starlings in a murmuration and fireflies flashing in sync have no leader. Each one reacts only to its neighbours, and order emerges anyway. We wanted a distributed system you can *listen* to. So we picked the hard constraint: once the page has loaded, the devices never use the network. If they can only talk through the air, the music has to *be* the protocol.
 
 ## What it does
-- **Joining:** open the page and tap *Join the swarm*. Your device listens first. The moment it hears a neighbour's song it jumps onto the band's beat, claims a free slot, and works out which part (bass, melody, pads, drums) is missing.
-- **Talking:** each device sings a short chime once per cycle, on its own slot's downbeat. The chime carries its slot, part, the key it's playing, a song version, and *who it can hear* (acknowledgements).
-- **Genres:** Dream pop, Lo-fi, Disco and Reggae. Tap the genre button and the whole band switches together. What each device plays depends on how many devices there are: alone it's a one-man band; with friends, the parts split up.
-- **Agreeing:** the band agrees a key and chord progression by gossip. Every so often someone says "I fancy a change", and two cycles later every device switches key on the same downbeat.
-- **Failing:** **Knock me out** makes a device deaf and scrambles its clock and key, so it audibly falls out of the band. It keeps playing on its own. When it can hear again, it stays quiet for a cycle, finds the band and locks back in.
-- **Texting by song:** *Sing a message* packs 3 characters (from a 64-symbol alphabet including ♥ ★ ♪) into a chime, using the spare bit as a "this is text" flag. Every device that hears it flashes it and sings it on once, so a message can hop across the swarm with no network at all.
-- **Seeing the language:** *Show the language* opens a live spectrogram of the 8 bell notes, with every decoded song boxed note by note and colour-coded by meaning. The Rosetta strip translates the latest song into words ("#3 sang: I play drums, in A minor, I hear #1 #5").
-- **Virtual room:** `sim.html` runs the same agent code over a simulated room (clock offsets, 20–270 ms audio latency, the speed of sound, collisions, loss, walls), so you can watch 8 musicians split behind a wall and merge again.
+- **Joining:** open the page and tap *Join the swarm*. Your device listens. The moment it hears a neighbour's chime it jumps onto the band's beat, claims a free slot, and works out which part (bass, melody, pads, drums) is missing.
+- **Talking:** every chime is a data packet in an invented 8-note language. It says which slot the device sings in, its part, the song, and *who it can hear* (acknowledgements). Empty bars are filled with extra "beacon" chimes, always leaving two free for newcomers, so the band talks often and newcomers find it fast.
+- **Agreeing:** devices agree on a key and chord progression by gossip. Every so often one says "I fancy a change", and the whole band switches on the same downbeat.
+- **Genres:** Dream pop, Lo-fi, Disco and Reggae. Tap the genre button on any device and the whole band counts down and switches together. Each device's part depends on how many devices there are: alone it's a one-man band, two devices split the arrangement, four or more each take one part.
+- **Failing gracefully:** *Knock me out* makes a device deaf and scrambles its clock and key, so it audibly falls out of the band, and it plays on alone. When it can hear again, it listens quietly for a cycle, finds the band and locks back in. You can *hear* the network heal.
+- **Texting by song:** *Sing a message* hides 3 characters (from a 64-symbol alphabet including ♥ ★ ♪) in a chime. Every device that hears it flashes it and sings it on once, so a message hops across the swarm through the air.
+- **Seeing the language:** *Show the language* is a live spectrogram of the 8 bell notes, with every decoded chime boxed note by note and colour-coded by meaning. The Rosetta strip translates each chime into words: "#3 sang: I play drums, in Disco · A minor, I hear #1 #5".
+- **Virtual room:** `sim.html` runs the same agent code in a simulated room: clock offsets, 20–270 ms of audio latency, the speed of sound, collisions, packet loss and walls. You can watch 8 musicians split behind a wall and merge again.
 
 ## How we built it
-Vanilla JS and the Web Audio API: a static site with no backend and no dependencies.
-- **The modem (`modem.js`):**
-  - Sending: 8 pure sine tones on C major pentatonic, C7–E8 (2.1–5.3 kHz). A packet is two preamble chords plus 13 data notes, 100 ms each.
-  - Encoding: the data notes alternate between two tone sets (2 bits per note), so a room's echo of one note can never be mistaken for the next. 19 bits of payload plus a CRC-7.
-  - Receiving: an AudioWorklet forwards raw mic samples, stamped with the audio clock, to a Goertzel filter bank. The preamble onset is located to sample accuracy with a triangle-peak fit.
-  - Each note also rings a warm partial two octaves down, which falls *between* the detector's bins. That makes the data sound like a chime in the band's key instead of a beep, at no cost in decoding.
-- **The agent (`agent.js`):**
-  - Fixed 120 BPM grid, 8 one-bar slots per 16 s cycle.
-  - Timing is never sent as data: *when* the preamble starts, plus *which* slot it came from, gives the sender's grid.
-  - Beat sync works like fireflies: snaps toward bigger groups, small errors tracked with a gain of 0.3, and corrections slewed so they're inaudible.
-  - Key changes use a two-cycle handshake. Roles are a deterministic deal. Slot clashes are found by silent listening turns plus acknowledgement masks.
-- **The latency trick:** browsers add 20–250 ms of unknown output plus input latency, which would wreck sync. But every device hears *its own* song through its own mic, which measures its round trip. Comparing a neighbour's arrival with your own arrival (same mic, same input path) cancels the input path. What remains lines up the moments the sound leaves each speaker, which is what listeners hear.
-- **Testing:** headless Node tests run the real DSP on synthetic audio (crowd babble, room reverb, collisions), and the real agent code in the simulated room (joins, steady state, split/heal, knock-out, deafness).
+Vanilla JavaScript and the Web Audio API: a static site with no backend and no dependencies.
+- **The language (`modem.js`):**
+  - Notes: 8 pure sine tones on C major pentatonic, C7–E8 (2.1–5.3 kHz), above most crowd noise.
+  - Packet: two preamble chords, then 13 data notes. Each note is a 16th note (125 ms at 120 BPM), so chimes sit on the beat grid.
+  - Encoding: data notes alternate between two tone sets (2 bits each), so a room's echo of one note is never mistaken for the next. 19 bits of payload plus a CRC-7.
+  - Meaning in the order: the preamble's chord order says whether this is a device's own slot or a spare-bar beacon.
+  - Receiving: an AudioWorklet stamps raw mic samples with the audio clock, then a Goertzel filter bank finds the preamble onset to sample accuracy.
+  - Sounding good: each note also rings a warm partial that *arpeggiates the chord the band is playing*. It falls between the detector's bins, so it costs nothing in decoding, but the data sounds like part of the music.
+- **The musician (`agent.js`):**
+  - Fixed 120 BPM grid of 8 one-bar slots. Timing is never sent as data: *when* a chime starts, plus *which bar* it belongs to, gives the sender's grid.
+  - Firefly-style sync: snap toward bigger groups, track small errors with gain 0.3, and slew corrections so they're inaudible.
+  - Key and genre changes use a handshake, so every device switches on the same downbeat.
+  - Roles are a deterministic deal. Slot clashes are caught by silent listening turns plus acknowledgement masks.
+- **The latency trick:** browsers add 20–250 ms of unknown audio latency, which would wreck sync. But every device hears *its own* chime through its own mic, which measures its round trip. Comparing a neighbour's arrival with your own (same mic, same input path) cancels the input path. What's left lines up the moments sound leaves each speaker, which is what listeners hear.
+- **Testing:** headless Node tests run the real DSP on synthetic audio (crowd babble, room reverb, collisions, speaker clipping), and the real agent code in the simulated room (joining, steady state, split/heal, knock-outs, genre changes).
 
 ## Challenges we ran into
-- **Room echo was the real enemy, not noise.** A hall's reverb lasts longer than a note. Alternating tone sets took decoding under heavy reverb from about 30% to 80–90%.
-- **Bell-like decaying notes** pushed symbol errors to 70%. The carrier had to be held, so the bell character moved into the "body" partial.
-- **iOS Safari plays Web Audio much quieter while the mic is open** (WebKit bugs 218012, 236219 and 311451, still open). We boost and limit on iPhones and use laptops and Android phones as anchors.
-- **Echo cancellation must be off.** Otherwise the device deletes its own song, and the latency trick depends on hearing it.
-- **Two devices singing in the same slot can never hear each other**: each drowns the other out with its own speaker. We found this with the simulator, and fixed it with silent listening turns and acknowledgement masks.
-- **Live testing found one the simulator didn't:** a knocked-out phone came back singing at exactly the moment the laptop sang, so neither could hear the other. A device coming back now listens silently for a cycle first.
+- **Room echo was the real enemy, not noise.** A hall's reverb outlasts a note. Alternating tone sets took decoding under heavy reverb from about 30% to 80–93%.
+- **Bell-like decaying notes pushed errors to 70%.** The data carrier has to be held, so the bell character moved into a separate "body" partial.
+- **iOS Safari plays audio much quieter while the mic is open** (WebKit bugs 218012, 236219 and 311451, still open). iPhones get a boost and a limiter; laptops and Android phones make the best anchors.
+- **iOS freezes the audio clock behind dialogs.** A phone typing a message came back seconds out of step. Now every device detects a stalled audio clock and catches up by exactly the stall.
+- **Two devices in the same slot can never hear each other:** each drowns the other out with its own speaker. Silent listening turns and acknowledgement masks fixed it.
+- **Live testing found bugs the simulator didn't,** e.g. a knocked-out phone coming back singing at the exact moment the laptop sang, so neither could hear the other. A returning device now listens silently for a cycle first.
 
 ## Accomplishments we're proud of
-- **The modem:** 100% decode down to −15 dB SNR in crowd babble, with about 2 ms timing error, and zero false packets in 60 s of noise.
-- **The swarm:** 4 ms mean audible beat spread across devices with very different, unknown latencies, at 30% packet loss.
-- **Recovery:** a knocked-out device re-locks in about 13 s median, without dragging anyone else off the beat.
-- **It's music:** it sounds like a band, not a modem.
+- **The language:** 100% decoding down to −15 dB SNR in crowd babble, about 1–2 ms timing error, and zero false packets in 60 s of noise.
+- **The swarm:** a 4 ms mean audible beat spread across devices with very different, unknown latencies, at 30% packet loss.
+- **Joining:** a newcomer locks in a median of 16 s (down from 36 s).
+- **Recovery:** a knocked-out device re-locks in a median of 13 s, without dragging anyone else off the beat.
+- **It's music:** four genres, arrangements that adapt to band size, and data chimes that harmonise with the chords.
 
 ## What we learned
 - Pulse-coupled oscillator sync, gossip consensus, and why "follow the bigger group" heals splits.
-- Acoustic channel design: why the band and the echo matter more than the noise.
-- Goertzel filter banks.
-- Where browsers lie about latency, and how to measure the truth.
+- Acoustic channel design: why echo and the choice of frequency band matter more than noise.
+- Goertzel filter banks, preamble timing, and where browsers lie about latency.
 
 ## What's next
-- Multi-hop "firefly fields", with slots reused out of earshot, for a whole hall of phones.
-- Tempo voting.
-- A conductor-less piece written for 30 phones.
+- **Acoustic instruments:** classical and jazz with small sampled instruments (piano, strings, upright bass), preloaded once, instead of synthesized voices.
+- **More genres:** a wider song field in the packet, so genres no longer have to share 3 bits with sections.
+- **Fully offline:** cache the whole app, so a device can even *join* in airplane mode.
+- **Firefly fields:** reuse slots out of earshot, so a whole hall of phones becomes one multi-hop band.
+- Tempo voting, and a conductor-less piece written for 30 phones.
 
 ## Built with
 JavaScript · Web Audio API · AudioWorklet · getUserMedia · Canvas · Node.js (tests) · Netlify (static hosting)
 
-**AI disclosure:** the product contains no generative AI. Every chime, chord and decision is produced by hand-written DSP and agent code running on the device. It was built with AI assistance (Claude Code).
+**AI disclosure:** the product contains no generative AI. Every chime, chord and decision comes from hand-written DSP and agent code running on the device. It was built with AI assistance (Claude Code).
 
 ---
 
-## Two-minute demo script
-**Set-up:**
-- Laptop and phone(s) 30–60 cm apart, volume at maximum, no Bluetooth speakers.
-- Open `?demo` on the laptop and one phone and join them **before** the judges arrive. Keep a third device (or the phone) ready to join live.
+# Pitch notes (for practice, not for Devpost)
+
+## Set-up before the judges arrive
+- Devices 30–60 cm apart, volume at maximum, no Bluetooth speakers.
+- Join **every** device (tap *Join the swarm*) and let them lock: you'll see "band of N".
+- Then switch on **airplane mode** on all of them, Wi-Fi off too. Never switch it on *before* tapping Join: the page fetches one more file when you join.
 - On the laptop, open *Show the language*. Keep `sim.html` in another tab.
 
+## Two-minute demo
 | Time | Do | Say |
 |---|---|---|
-| 0:00 | Hold up the playing devices | "No Wi-Fi, no server, no conductor. These devices talk to each other only by singing." |
-| 0:15 | Point at the laptop spectrogram when a chime lands | "Every chime is a data packet: 26 bits, and the notes are the bits. Here's that song boxed note by note: who sang, which part they're playing, what key, and who they can hear. And the *timing* of the song carries the beat, without a single bit being sent." |
-| 0:40 | Join the third device (or knock out and restore) | "A newcomer starts on its own random beat. Listen… it heard a song, jumped onto the beat, and picked a part nobody was playing, all by itself." (LOCKED flash) |
-| 1:05 | Press **Knock me out** | "Now we cut its comms. It's deaf, it's lost its place, it's on its own: hear it drift." |
-| 1:20 | Press **Let me hear again** | "It listens quietly for a cycle, finds the band, and locks back in. You can hear the network heal." |
-| 1:40 | Switch to `sim.html`, add the wall | "Same agent code in a simulated room: split them, they play on separately, take the wall away, they merge. 4 ms beat spread at 30% packet loss, and every device cancels its own latency by listening to itself." |
+| 0:00 | Hold up the playing devices | "These phones are a band, and they only talk to each other through sound. The internet was used once, to download the page: they're all in airplane mode now." |
+| 0:15 | Point at the spectrogram when a chime lands | "Every chime is a data packet in a language we invented: 8 notes, 26 bits. Here it's decoded note by note: who sang, which part they play, which song, and who they can hear. And *when* the chime lands carries the beat, without sending a single bit." |
+| 0:40 | Press **Knock me out** on a phone | "Now we cut one off. It's deaf, it's lost its place: listen to it drift. But it doesn't stop; it plays on by itself." |
+| 1:00 | Press **Let me hear again** | "Give it its ears back. It listens quietly, finds the band, and locks back in. You can hear the network heal." (LOCKED flash) |
+| 1:20 | Tap the genre button | "Any device can propose a change. The others hear it, everyone counts down, and the whole band switches on the same downbeat, with no conductor." |
+| 1:40 | Switch to `sim.html`, add the wall, then remove it | "Same code in a simulated room: split them and they carry on separately; reunite them and they merge. 4 ms beat spread at 30% packet loss." |
 | 1:55 | — | "Murmuration: a band that agrees by ear." |
 
-**If the hall is too loud:** move the devices closer together (about 20 cm) and do the demo mostly in `sim.html`. Have the backup video ready.
+## One-minute version (if judges are short on time)
+1. "Phones that form a band through sound alone: airplane mode on, no server, no conductor." (let them listen)
+2. "Every chime is data; here it is decoded." (spectrogram)
+3. Knock one out → let it hear again → "it heals itself."
+4. "Murmuration: a band that agrees by ear."
+
+## Lines tuned for each challenge
+- **Neptune North:** "Every device is an independent actor with a shared goal. Cut its comms and it keeps working alone; reconnect it and it rejoins without a hub."
+- **QRT Tagged:** "A physical language for digital data: an 8-note alphabet, a CRC, and timing that carries information on its own. You can even text by song."
+- **Composition:** "The data *is* the music: the chimes arpeggiate the chords the band is playing."
+- **Hackiest Hack:** "A consensus protocol whose physical layer is phones chiming at each other across a hackathon hall, working around three open WebKit bugs."
+
+## Likely questions
+- **"Is it really not using the network?"** "Only to load the page. Put them in airplane mode and watch." (the demo already shows it)
+- **"How do they sync, with different audio latencies?"** "Each device hears its own chime and measures its round trip. Comparing a neighbour's arrival with your own, through the same mic, cancels the unknown latency. We get 4 ms spread."
+- **"What happens in a noisy room?"** "The chimes sit at 2–5 kHz, above most speech. We decode at −15 dB SNR in simulated crowd noise. In a really loud hall, move the devices closer."
+- **"How many devices?"** "8 slots per band today. Spare bars carry extra beacons while the band is small. Multi-hop 'firefly fields' would scale it to a whole hall."
+- **"Why does it take a few seconds to join?"** "Each device sings in its own bar of a 16-second cycle, so a newcomer has to hear someone first. The median join is 16 seconds; spare-bar beacons speed it up."
+- **"Is there AI in it?"** "No generative AI in the product: it's hand-written signal processing and agent logic. We used Claude Code to help build it."
+
+**If the hall is too loud:** move the devices to about 20 cm apart, and lean on `sim.html` for the split/merge part.
