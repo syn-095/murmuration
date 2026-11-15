@@ -107,6 +107,8 @@ JavaScript · Web Audio API · AudioWorklet · getUserMedia · Canvas · Node.js
 
 ## Lines tuned for each challenge
 - **Neptune North:** "Every device is an independent actor with a shared goal. Cut its comms and it keeps working alone; reconnect it and it rejoins without a hub."
+  - Contrast line (other teams fake their network failures with dashboard buttons): *"Our network failures aren't simulated. The only link between these devices is the air in this room, and you can cut it for real."*
+- **Introducing it** (two other teams also called their project Murmuration): say *"Murmuration, the band of phones that talk through sound"* so judges tie the name to this project.
 - **QRT Tagged:** "A physical language for digital data: an 8-note alphabet, a CRC, and timing that carries information on its own. You can even text by song."
 - **Composition:** "The data *is* the music: the chimes arpeggiate the chords the band is playing."
 - **Hackiest Hack:** "A consensus protocol whose physical layer is phones chiming at each other across a hackathon hall, working around three open WebKit bugs."
